@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 
-from datasets.brats2021 import BraTS2021Dataset_Cyclic, get_brats2021_train_transform_abnormalty_train, get_brats2021_train_transform_abnormalty_test
+from datasets.brats2021 import BraTS2021Dataset_Cyclic, LDFDCTDataset, OxAAADataset, get_brats2021_train_transform_abnormalty_train, get_brats2021_train_transform_abnormalty_test, get_ldfdct_train_transform_abnormalty_train, get_ldfdct_train_transform_abnormalty_test, get_oxaaa_train_transform_abnormalty_test, get_oxaaa_train_transform_abnormalty_train
 
 def seed_worker(worker_id):
     np.random.seed(worker_id)
@@ -14,10 +14,17 @@ g = th.Generator()
 g.manual_seed(0)
 
 
-def get_data_loader(dataset, data_path, config, input, trans=None, split_set='train', generator=True):
+def get_data_loader(dataset, data_path, config, input, trans, split_set='train', generator=True):
     if dataset == 'brats':
         loader = get_data_loader_brats_cyclic(input, trans, data_path, config.score_model.training.batch_size, config.score_model.image_size,
                                            split_set=split_set)
+    elif dataset == 'ldfdct':
+        loader = get_data_loader_ldfdct_cyclic(input, trans, data_path, config.score_model.training.batch_size, config.score_model.image_size,
+                                           split_set=split_set)
+    elif dataset == 'oxaaa':
+        loader = get_data_loader_oxaaa_cyclic(input, trans, data_path, config.score_model.training.batch_size, config.score_model.image_size,
+                                           split_set=split_set)
+
     else:
         raise Exception("Dataset does exit")
 
@@ -52,7 +59,77 @@ def get_data_loader_brats_cyclic(input, trans, path, batch_size, image_size, spl
             trans_mod=trans,
             transforms=train_transforms)
 
+    print(f"dataset length: {len(dataset)}")
+    return th.utils.data.DataLoader(dataset, **default_kwargs)
+
+def get_data_loader_ldfdct_cyclic(input, trans, path, batch_size, image_size, split_set: str = 'train'):
+
+    assert split_set in ["train", "test"]
+    default_kwargs = {"drop_last": False, "batch_size": batch_size, "pin_memory": False, "num_workers": 0,
+                      "prefetch_factor": 8, "worker_init_fn": seed_worker, "generator": g, }
+    if split_set == "test":
+        
+
+        default_kwargs["shuffle"] = False
+        default_kwargs["num_workers"] = 1
+        default_kwargs["batch_size"] = 2
+        infer_transforms = get_ldfdct_train_transform_abnormalty_test(image_size)
+        dataset = LDFDCTDataset(
+            data_root=path,
+            mode='test',
+            input_mod=input,
+            trans_mod=trans,
+            transforms=infer_transforms)
+    else:
+        
+        default_kwargs["shuffle"] = True
+        default_kwargs["num_workers"] = 1
+        train_transforms = get_ldfdct_train_transform_abnormalty_train(image_size)
+        dataset = LDFDCTDataset(
+            data_root=path,
+            mode='train',
+            input_mod=input,
+            trans_mod=trans,
+            transforms=train_transforms)
+
     print(f"dataset lenght: {len(dataset)}")
+   
+    
+    return th.utils.data.DataLoader(dataset, **default_kwargs)
+
+def get_data_loader_oxaaa_cyclic(input, trans, path, batch_size, image_size, split_set: str = 'train'):
+
+    assert split_set in ["train", "test"]
+    default_kwargs = {"drop_last": False, "batch_size": batch_size, "pin_memory": False, "num_workers": 0,
+                      "prefetch_factor": 8, "worker_init_fn": seed_worker, "generator": g, }
+    if split_set == "test":
+        
+
+        default_kwargs["shuffle"] = False
+        default_kwargs["num_workers"] = 1
+        # default_kwargs["batch_size"] = 2
+        infer_transforms = get_oxaaa_train_transform_abnormalty_test(image_size)
+        dataset = OxAAADataset(
+            data_root=path,
+            mode='test',
+            input_mod=input,
+            trans_mod=trans,
+            transforms=infer_transforms)
+    else:
+        
+        default_kwargs["shuffle"] = True
+        default_kwargs["num_workers"] = 1
+        train_transforms = get_oxaaa_train_transform_abnormalty_train(image_size)
+        dataset = OxAAADataset(
+            data_root=path,
+            mode='train',
+            input_mod=input,
+            trans_mod=trans,
+            transforms=train_transforms)
+
+    print(f"dataset lenght: {len(dataset)}")
+   
+    
     return th.utils.data.DataLoader(dataset, **default_kwargs)
 
 

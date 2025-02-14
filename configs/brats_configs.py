@@ -7,7 +7,7 @@ def get_default_configs():
     config.device = th.device('cuda') if th.cuda.is_available() else th.device('cpu')
     config.seed = 1
     config.data = data = ml_collections.ConfigDict()
-    data.path = "/home/some5338/Documents/data/brats"
+    data.path = "/home/trin4156/Desktop/datasets/nnunet/nnunet_raw/Dataset102_nonconoxaaa2d/OxAAA"
     data.sequence_translation = False # bool
     data.healthy_data_percentage = None
 
@@ -23,7 +23,7 @@ def get_default_configs():
 
     ## score model config
     config.score_model = score_model = ml_collections.ConfigDict()
-    score_model.image_size = 128
+    score_model.image_size = 256
     score_model.num_input_channels = 1
     score_model.num_channels = 32 #64,96
     score_model.num_res_blocks = 2 #2,3
@@ -39,7 +39,7 @@ def get_default_configs():
             attention_ds.append(score_model.image_size // int(res))
     score_model.attention_ds = attention_ds
 
-    score_model.channel_mult = {64:(1, 2, 3, 4), 128:(1, 1, 2, 3, 4)}[score_model.image_size]
+    score_model.channel_mult = {64:(1, 2, 3, 4), 128:(1, 1, 2, 3, 4),256:(1, 1, 2, 3, 4)}[score_model.image_size]
     score_model.dropout = 0.1
     score_model.use_checkpoint = False
     score_model.use_scale_shift_norm = True
@@ -54,19 +54,19 @@ def get_default_configs():
     training_score.weight_decay = 0.00
     training_score.lr_decay_steps = 150000
     training_score.lr_decay_factor = 0.5
-    training_score.batch_size = 32
+    training_score.batch_size = 2
     training_score.ema_rate = "0.9999"  # comma-separated list of EMA values
     training_score.log_interval = 100
     training_score.save_interval = 5000
     training_score.use_fp16 = score_model.use_fp16
     training_score.fp16_scale_growth = 1e-3
-    training_score.iterations = 100000
+    training_score.iterations = 1000000
 
     config.sampling = sampling = ml_collections.ConfigDict()
     sampling.clip_denoised = False
     sampling.dynamic_sampling = True
     sampling.num_samples = 125      # 1024, 3z986
-    sampling.batch_size = 32
+    sampling.batch_size = 8
     sampling.ivlr_scale = 16
     sampling.reconstruction = True
     sampling.eta = 0.0

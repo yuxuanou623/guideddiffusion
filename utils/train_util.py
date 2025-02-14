@@ -106,7 +106,7 @@ class TrainLoop:
                 or self.step + self.resume_step < self.iterations
         ):
             data_dict = next(self.data)
-            self.run_step(data_dict)
+            self.run_step(data_dict, self.step)
             if self.step % self.save_interval == 0:
                 self.save()
             if self.step % self.log_interval == 0:
@@ -123,26 +123,26 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save()
 
-    def run_step(self, data_dict):
-        self.forward_backward(data_dict, phase="train")
+    def run_step(self, data_dict, iteration):
+        self.forward_backward(data_dict, iteration, phase="train")
         took_step = self.mp_trainer.optimize(self.opt)
         if took_step:
             self._update_ema()
         self.lr_decay()
 
 
-    def forward_backward(self, data_dict, phase: str = "train"):
+    def forward_backward(self, data_dict, iteration, phase: str = "train"):
 
         if self.recursive_flag == 0:
             self.batch_image_input = data_dict.pop(self.main_data_indentifier_input)
             self.batch_image_trans = data_dict.pop(self.main_data_indentifier_trans)
-            self.batch_image_seg = data_dict.pop('seg')
-            self.brain_mask = th.ones(self.batch_image_seg.shape) * (data_dict.pop('brainmask') > 0)
+            # self.batch_image_seg = data_dict.pop('seg')
+            # self.brain_mask = th.ones(self.batch_image_seg.shape) * (data_dict.pop('brainmask') > 0)
 
             self.batch_image_input = self.batch_image_input.to(self.device)  # t1
             self.batch_image_trans = self.batch_image_trans.to(self.device)  # t2
-            self.batch_image_seg = self.batch_image_seg.to(self.device)  # seg
-            self.brain_mask = self.brain_mask.to(self.device)
+            # self.batch_image_seg = self.batch_image_seg.to(self.device)  # seg
+            # self.brain_mask = self.brain_mask.to(self.device)
             self.model_conditionals = data_dict
 
         assert phase in ["train", "val"]
@@ -155,7 +155,7 @@ class TrainLoop:
         self.mp_trainer.zero_grad()
 
 
-        self.t, self.weights = self.schedule_sampler.sample(self.batch_image_seg.shape[0], self.device)
+        self.t, self.weights = self.schedule_sampler.sample(self.batch_image_input.shape[0], self.device)
 
         x0_t = None
         labels = None
@@ -165,9 +165,10 @@ class TrainLoop:
             self.model,
             self.batch_image_input,
             self.batch_image_trans,
-            self.brain_mask,
+            self.batch_image_trans,
             self.args.model_name,
             self.t,
+            iteration,
             x0_t,
             model_kwargs=self.model_conditionals
         )

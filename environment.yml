@@ -113,4 +113,4 @@ dependencies:
     - tqdm==4.66.1
     - werkzeug==3.0.0
     - zipp==3.17.0
-prefix: /home/some5338/anaconda3/envs/MMCCD
+

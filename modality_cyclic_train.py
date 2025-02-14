@@ -15,6 +15,8 @@ from datasets import loader
 from models.resample import create_named_schedule_sampler
 from utils.script_util import create_gaussian_diffusion, create_score_model
 from utils.train_util import TrainLoop
+import wandb
+
 sys.path.append(str(Path.cwd()))
 
 
@@ -23,6 +25,10 @@ def main(args):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(use_gpus)
     time_load_start = time.time()
     config = get_config.file_from_dataset(args.dataset)
+    
+    wandb.init(project="oxaaaguideddif", config =config)
+
+    wandb.config.update(vars(args))
 
     if args.experiment_name != 'None':
         experiment_name = args.experiment_name
@@ -62,6 +68,8 @@ def main(args):
     time_load = time_load_end - time_load_start
     logger.log("data loaded: time ", str(time_load))
     logger.log("training...")
+    
+    
     TrainLoop(
         model=model,
         diffusion=diffusion,
@@ -90,12 +98,13 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu_id", help="the id of the gpu you want to use, like 0", type=int, default=0)
-    parser.add_argument("--dataset", help="brats", type=str, default='brats')
-    parser.add_argument("--input", help="input modality, choose from flair, t2, t1", type=str, default='flair')
-    parser.add_argument("--trans", help="translated modality, choose from flair, t2, t1", type=str, default='t2')
-    parser.add_argument("--data_dir", help="data directory", type=str, default='./datasets/data')
+    parser.add_argument("--dataset", help="brats", type=str, default='ldfdct')
+    parser.add_argument("--input", help="input modality, choose from flair, t2, t1", type=str, default='ld')
+    parser.add_argument("--trans", help="translated modality, choose from flair, t2, t1", type=str, default='fd')
+    #parser.add_argument("--data_dir", help="data directory", type=str, default='/home/trin4156/Desktop/datasets/nnunet/nnunet_raw/Dataset102_nonconoxaaa2d/OxAAA')
+    parser.add_argument("--data_dir", help="data directory", type=str, default='/home/trin4156/Downloads/data')
     parser.add_argument("--experiment_name", help="model saving file name", type=str, default='None')
-    parser.add_argument("--model_name", help="translated model: unet or diffusion", type=str, default='unet')
+    parser.add_argument("--model_name", help="translated model: unet or diffusion", type=str, default='diffusion')
     args = parser.parse_args()
     main(args)
 
