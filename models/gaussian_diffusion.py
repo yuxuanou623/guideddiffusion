@@ -699,10 +699,7 @@ class GaussianDiffusion:
             # trans_img = (trans_img / 255.0) * 2 - 1
             # input_img = (input_img / 255.0) * 2 - 1
             x_t = self.q_sample(trans_img, noise, self._scale_timesteps(t))
-            print("trans_imgtrans_img max", th.max(trans_img))
-            print("trans_imgtrans_img min", th.min(trans_img))
-            print("input_imgtrans_img max", th.max(input_img ))
-            print("input_imgtrans_img min", th.min(input_img ))
+           
             # print("noise min", th.min(noise))
             # print("noise max", th.max(noise))
             ### grid mask ###
@@ -716,13 +713,14 @@ class GaussianDiffusion:
             cond = input_img 
             x_t_input = th.cat((x_t, cond), 1)
            
-            x_start_pred = model(x_t_input, self._scale_timesteps(t), **model_kwargs)
+            x_start_pred, masks = model(x_t_input, self._scale_timesteps(t), **model_kwargs)
         elif model_name == 'unet':
             x_t_input = input_img
             x_start_pred = model(x_t_input, **model_kwargs)
-
+        
 
         target = trans_img
+
         terms["loss"] = mean_flat((target - x_start_pred) ** 2)
         
         max_index = th.argmax(t)
@@ -731,7 +729,9 @@ class GaussianDiffusion:
         if iteration % 1000 ==0:
             wandb.log({f"{iteration}_Image_step_{t[max_index]}": wandb.Image(x_start_pred[max_index,:,:,:].squeeze(0).detach().cpu().numpy())})
             wandb.log({f"{iteration}_target_step": wandb.Image(target[max_index,:,:,:].squeeze(0).detach().cpu().numpy())})
-            wandb.log({f"{iteration}_x_t_step": wandb.Image(x_t[max_index,:,:,:].squeeze(0).detach().cpu().numpy())})
+            wandb.log({f"{iteration}_noncon": wandb.Image(input_img[max_index,:,:,:].squeeze(0).detach().cpu().numpy())})
+            wandb.log({f"{iteration}_mask0": wandb.Image(masks[max_index,0,:,:].squeeze(0).detach().cpu().numpy())})
+            wandb.log({f"{iteration}_mask1": wandb.Image(masks[max_index,1,:,:].squeeze(0).detach().cpu().numpy())})
 
         return terms
 

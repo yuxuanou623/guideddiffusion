@@ -21,16 +21,22 @@ def load_image(image_path):
     with Image.open(image_path)as img:
         return np.array(img, dtype=np.float32)
     
+import numpy as np
+from PIL import Image
+
 def load_image_grey(image_path):
-    tmp1 = np.array(Image.open(image_path).convert('L'))
-    tmp2 = np.array(Image.open(image_path))[:, :, 0]
-    # print(tmp1.shape, tmp2.shape)
-    # #print(all(np.equal(tmp1, tmp2).all()))
-    # print(np.max(tmp1), np.max(tmp2))
-    # print(np.min(tmp1), np.min(tmp2))
-    # exit()
+    # Load image, convert to grayscale, and convert to numpy array
     with Image.open(image_path).convert('L') as img:
-        return np.array(img, dtype=np.float32)
+        img_array = np.array(img, dtype=np.float32)
+    
+    # Normalize to range [0, 1]
+    img_array /= 255.0
+    
+    # Scale to range [-1, 1]
+    img_array = 2 * img_array - 1
+    
+    return img_array
+
 
 def get_brats2021_train_transform_abnormalty_train(image_size):
     base_transform = get_brats2021_base_transform_abnormalty_train(image_size)
@@ -328,6 +334,61 @@ class OxAAADataset(Dataset):
 
     def __len__(self):
         return len(self.image_pairs)
+    
+# class OxAAADataset(Dataset):
+#     def __init__(self, data_root: str, mode: str, input_mod='noncon', trans_mod='con', transforms=None):
+#         super(OxAAADataset, self).__init__()
+#         assert mode in ['train', 'test'], 'Unknown mode'
+#         self.mode = mode
+#         self.data_root = data_root
+#         self.input_mod = input_mod  # Typically 'noncon'
+#         self.trans_mod = trans_mod  # Typically 'con'
+#         self.transforms = transforms
+        
+#         self.data_root =  Path(self.data_root) / self.mode
+       
+#         # Initialize directories for contrast and non-contrast images
+#         self.input_dir = Path(self.data_root) / 'noncon'
+#         self.trans_dir = Path(self.data_root) / 'con'
+
+#         print("self.input_dir", self.input_dir)
+#         print("self.trans_dir ", self.trans_dir )
+
+#         # List of all image names in the input directory
+#         self.input_images = sorted(self.input_dir.glob('*.png'))
+
+#         # Dictionary to quickly find corresponding images
+#         self.image_pairs = self._cache_pairs()
+
+#     def _cache_pairs(self):
+#         pairs = {}
+#         # Pair images with the same name in input and trans directories
+#         for input_img in self.input_images:
+#             trans_img_path = self.trans_dir / input_img.name
+#             if trans_img_path.exists():
+#                 pairs[input_img] = trans_img_path
+#         return pairs
+
+#     def __getitem__(self, index):
+#         input_img_path, trans_img_path = list(self.image_pairs.items())[index]
+#         # Load images
+#         input_image = load_image_grey(input_img_path)
+#         trans_image = load_image_grey(trans_img_path)
+
+#         data_dict = {'input': input_image, 'trans': trans_image}
+#         # print("input_image", input_image.shape)
+#         # print("trans_image", trans_image.shape)
+#         if isinstance(data_dict['input'], bytes) or isinstance(data_dict['trans'], bytes):
+#             print("input_img_path",input_img_path)
+#             print("trans_img_path",trans_img_path)
+#             raise ValueError("Image data is in bytes, expected a numerical array or tensor.")
+#         if self.transforms:
+#             data_dict = self.transforms(data_dict)
+
+#         return data_dict
+
+#     def __len__(self):
+#         return len(self.image_pairs)
 
 
 

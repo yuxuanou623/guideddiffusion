@@ -22,7 +22,11 @@ def get_data_loader(dataset, data_path, config, input, trans, split_set='train',
         loader = get_data_loader_ldfdct_cyclic(input, trans, data_path, config.score_model.training.batch_size, config.score_model.image_size,
                                            split_set=split_set)
     elif dataset == 'oxaaa':
-        loader = get_data_loader_oxaaa_cyclic(input, trans, data_path, config.score_model.training.batch_size, config.score_model.image_size,
+        if split_set == "train":
+            loader = get_data_loader_oxaaa_cyclic(input, trans, data_path, config.score_model.training.batch_size, config.score_model.image_size,
+                                           split_set=split_set)
+        elif split_set == "test":
+            loader = get_data_loader_oxaaa_cyclic(input, trans, data_path, config.sampling.batch_size, config.score_model.image_size,
                                            split_set=split_set)
 
     else:

@@ -42,24 +42,26 @@ import cv2
 import numpy as np
 import torch  # If working with PyTorch tensors
 
-def save_images(img_pred_all, img_true_all, trans_all, output_folder_pred, output_folder_true, output_folder_trans, n):
+import os
+import numpy as np
+import cv2
+import torch
+
+def save_images(img_pred_all, img_true_all, trans_all, output_folder, n):
     """
-    Saves the first `n` images from img_pred_all, img_true_all, and trans_all as PNG files.
+    Saves the first `n` images from img_pred_all, img_true_all, and trans_all as a single PNG file with
+    each image side by side.
 
     Parameters:
     - img_pred_all: (numpy array or torch.Tensor) Predicted images (bs, 1, 512, 512).
     - img_true_all: (numpy array or torch.Tensor) Ground truth images (bs, 1, 512, 512).
     - trans_all: (numpy array or torch.Tensor) Transformed images (bs, 1, 512, 512).
-    - output_folder_pred: (str) Folder to save predicted images.
-    - output_folder_true: (str) Folder to save ground truth images.
-    - output_folder_trans: (str) Folder to save transformed images.
+    - output_folder: (str) Folder to save combined images.
     - n: (int) Number of images to save.
     """
 
-    # Ensure the output directories exist
-    os.makedirs(output_folder_pred, exist_ok=True)
-    os.makedirs(output_folder_true, exist_ok=True)
-    os.makedirs(output_folder_trans, exist_ok=True)
+    # Ensure the output directory exists
+    os.makedirs(output_folder, exist_ok=True)
 
     # Convert tensors to NumPy if needed
     if isinstance(img_pred_all, torch.Tensor):
@@ -74,34 +76,87 @@ def save_images(img_pred_all, img_true_all, trans_all, output_folder_pred, outpu
 
     # Loop through the first `n` images
     for i in range(n):
-        pred = np.squeeze(img_pred_all[i, :, :, :])  # Remove channel dim
-        true = np.squeeze(img_true_all[i, :, :, :])  # Remove channel dim
-        trans = np.squeeze(trans_all[i, :, :, :])   # Remove channel dim
+        # Normalize and convert images to [0, 255]
+        def normalize_image(image):
+            image = np.squeeze(image)  # Remove channel dimension
+            image = ((image + 1) / 2) * 255  # Convert from [-1, 1] to [0, 255]
+            return image.astype(np.uint8)
+        
+        pred = normalize_image(img_pred_all[i])
+        true = normalize_image(img_true_all[i])
+        trans = normalize_image(trans_all[i])
+
+        # Stack images horizontally
+        combined_image = np.hstack((true, trans, pred))
+
+        # Save the combined image
+        filename = os.path.join(output_folder, f"combined_image_{i}.png")
+        cv2.imwrite(filename, combined_image)
+        print(f"Saved combined image: {filename}")
+
+
+
+# def save_images(img_pred_all, img_true_all, trans_all, output_folder_pred, output_folder_true, output_folder_trans, n):
+#     """
+#     Saves the first `n` images from img_pred_all, img_true_all, and trans_all as PNG files.
+
+#     Parameters:
+#     - img_pred_all: (numpy array or torch.Tensor) Predicted images (bs, 1, 512, 512).
+#     - img_true_all: (numpy array or torch.Tensor) Ground truth images (bs, 1, 512, 512).
+#     - trans_all: (numpy array or torch.Tensor) Transformed images (bs, 1, 512, 512).
+#     - output_folder_pred: (str) Folder to save predicted images.
+#     - output_folder_true: (str) Folder to save ground truth images.
+#     - output_folder_trans: (str) Folder to save transformed images.
+#     - n: (int) Number of images to save.
+#     """
+
+#     # Ensure the output directories exist
+#     os.makedirs(output_folder_pred, exist_ok=True)
+#     os.makedirs(output_folder_true, exist_ok=True)
+#     os.makedirs(output_folder_trans, exist_ok=True)
+
+#     # Convert tensors to NumPy if needed
+#     if isinstance(img_pred_all, torch.Tensor):
+#         img_pred_all = img_pred_all.cpu().numpy()
+#     if isinstance(img_true_all, torch.Tensor):
+#         img_true_all = img_true_all.cpu().numpy()
+#     if isinstance(trans_all, torch.Tensor):
+#         trans_all = trans_all.cpu().numpy()
+
+#     # Ensure `n` does not exceed available images
+#     n = min(n, img_pred_all.shape[0], img_true_all.shape[0], trans_all.shape[0])
+
+#     # Loop through the first `n` images
+#     for i in range(n):
+#         pred = np.squeeze(img_pred_all[i, :, :, :])  # Remove channel dim
+#         true = np.squeeze(img_true_all[i, :, :, :])  # Remove channel dim
+#         trans = np.squeeze(trans_all[i, :, :, :])   # Remove channel dim
         
 
         
 
-        clipped_image = np.clip(pred, -1, 1)
-        normalized_image = ((clipped_image + 1) / 2) * 255  # Convert to [0, 255]
+#         clipped_image = np.clip(pred, -1, 1)
+#         normalized_image = ((clipped_image + 1) / 2) * 255  # Convert to [0, 255]
 
+#         true = ((true + 1) / 2) * 255  # Convert to [0, 255]
+#         trans = ((trans + 1) / 2) * 255  # Convert to [0, 255]
 
+#         # Save images
+#         pred_filename = os.path.join(output_folder_pred, f"pred_image_{i}.png")
+#         true_filename = os.path.join(output_folder_true, f"true_image_{i}.png")
+#         trans_filename = os.path.join(output_folder_trans, f"trans_image_{i}.png")
 
-        # Save images
-        pred_filename = os.path.join(output_folder_pred, f"pred_image_{i}.png")
-        true_filename = os.path.join(output_folder_true, f"true_image_{i}.png")
-        trans_filename = os.path.join(output_folder_trans, f"trans_image_{i}.png")
+#         cv2.imwrite(pred_filename, normalized_image)
+#         cv2.imwrite(true_filename, true)
+#         cv2.imwrite(trans_filename, trans)
+#         #image = Image.fromarray(pred, mode='L')  # 'L' mode for grayscale
 
-        cv2.imwrite(pred_filename, normalized_image)
-        cv2.imwrite(true_filename, true)
-        cv2.imwrite(trans_filename, trans)
-        #image = Image.fromarray(pred, mode='L')  # 'L' mode for grayscale
+#         # Save the image
+#         #image.save(pred_filename)
 
-        # Save the image
-        #image.save(pred_filename)
-
-        print(f"Saved: {pred_filename}")
-        print(f"Saved: {true_filename}")
-        print(f"Saved: {trans_filename}")
+#         print(f"Saved: {pred_filename}")
+#         print(f"Saved: {true_filename}")
+#         print(f"Saved: {trans_filename}")
 
 def sliding_window_inference(image, sample_fn, model_forward, model_backward, model_kwargs, config, args,
                              patch_size=128, stride=128, batch_size=32):
@@ -225,7 +280,7 @@ def main(args):
     model_forward = create_score_model(config, image_level_cond_forward)
     model_backward = create_score_model(config, image_level_cond_backward)
 
-    filename = "model005000.pt"
+    filename = args.modelfilename
  
 
     with bf.BlobFile(bf.join(logger.get_dir(), filename), "rb") as f:
@@ -261,7 +316,7 @@ def main(args):
     num_batch = 0
     num_sample = 0
     
-    n=1
+    n=10
     img_true_all = np.zeros((n*(config.sampling.batch_size), config.score_model.num_input_channels, config.score_model.image_size,
              config.score_model.image_size))
     img_pred_all = np.zeros((n*(config.sampling.batch_size), config.score_model.num_input_channels, config.score_model.image_size,
@@ -385,7 +440,8 @@ def main(args):
         output_folder_pred = "/mnt/data/data/evaluation/predict" +filename[:-3] # Change to your actual folder
         output_folder_true = "/mnt/data/data/evaluation/true" +filename[:-3]      # Change to your actual folder
         output_folder_trans = "/mnt/data/data/evaluation/trans"+filename[:-3]
-        save_images(img_pred_all, img_true_all, trans_all,output_folder_pred, output_folder_true,output_folder_trans,num_sample)
+        # save_images(img_pred_all, img_true_all, trans_all,output_folder_pred, output_folder_true,output_folder_trans,num_sample)
+        save_images(img_pred_all, img_true_all, trans_all,output_folder_pred, num_sample)
     elif args.model_name == 'diffusion_':
         filename_mask = "mask_forward_"+args.experiment_name_forward+'_backward_'+args.experiment_name_backward+".pt"
         filename_x0 = "cyclic_predict_"+args.experiment_name_forward+'_backward_'+args.experiment_name_backward+".pt"
@@ -420,6 +476,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_ddim", help="if you want to use ddim during sampling, True or False", type=str, default='False')
     parser.add_argument("--timestep_respacing", help="If you want to rescale timestep during sampling. enter the timestep you want to rescale the diffusion prcess to. If you do not wish to resale thetimestep, leave it blank or put 1000.", type=int,
                         default=100)
+    parser.add_argument("--modelfilename", help="brats", type=str, default='model155000_batchsize32_filtereddata.pt')
 
     args = parser.parse_args()
     print(args.dataset)

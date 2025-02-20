@@ -13,7 +13,7 @@ from configs import get_config
 from utils import logger
 from datasets import loader
 from models.resample import create_named_schedule_sampler
-from utils.script_util import create_gaussian_diffusion, create_score_model
+from utils.script_util import create_gaussian_diffusion, create_score_model, create_score_model_mask
 from utils.train_util import TrainLoop
 import wandb
 
@@ -49,8 +49,9 @@ def main(args):
     logger.configure(Path(experiment_name) / "score_train",
                      format_strs=["log", "stdout", "csv", "tensorboard"])
     diffusion = create_gaussian_diffusion(config, timestep_respacing=False)
-    model = create_score_model(config, image_level_cond)
-    
+    model = create_score_model_mask(config, image_level_cond)
+   
+   
 
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
