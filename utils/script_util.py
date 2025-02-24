@@ -28,7 +28,7 @@ def create_score_model(config: ml_collections.ConfigDict, image_level_cond):
 
 def create_score_model_mask(config: ml_collections.ConfigDict, image_level_cond):
     return factorizedunet.MaskUNetModel(
-        num_mask = 2,
+        num_mask = config.diffusion.num_masks,
         in_channels=config.score_model.num_input_channels,
         model_channels=config.score_model.num_channels,
         out_channels=(
