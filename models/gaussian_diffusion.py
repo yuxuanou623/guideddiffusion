@@ -764,9 +764,50 @@ class GaussianDiffusion:
         
         # terms["loss"] = mean_flat(loss) + masks_penalty
         
+        def smooth_any_positive(x, alpha=10):
+            """
+            Differentiable function to check if any value in x is greater than 0.
+            Uses Log-Sum-Exp (Softplus) to approximate OR.
+            :param x: Tensor of shape (...), any number of dimensions
+            :param alpha: Sharpness control (higher = closer to hard OR)
+            :return: Smoothly approximates max(x, 0)
+            """
+            return th.log(1 + th.sum(th.exp(alpha * x))) / alpha
+
+        def check_empty_masks(masks_logits, alpha=10):
+            """
+            Computes smooth_any_positive for each mask individually (per mask, per image).
+            Then returns the mean value across all masks per image.
+
+            :param masks_logits: Tensor of shape (batch_size, num_mask, H, W)
+            :param alpha: Sharpness parameter for smooth_any_positive
+            :return: Tensor of shape (batch_size,), mean empty mask score per image
+            """
+            batch_size, num_mask, H, W = masks_logits.shape
+
+            # Shift logits by -1/num_mask
+            shifted_logits = masks_logits - (1.0 / num_mask)
+
+            smooth_values_list = []  # Store values for each mask per image
+
+            for b in range(batch_size):  # Iterate over batch
+                per_image_values = []
+                for m in range(num_mask):  # Iterate over masks
+                    # Flatten the spatial dimensions and compute smooth_any_positive
+                    smooth_value = smooth_any_positive(shifted_logits[b, m].flatten(), alpha=alpha)
+                    per_image_values.append(smooth_value)
+                print("per_image_values",per_image_values)
+                # Compute mean across all masks in the image
+                mean_smooth_value = th.stack(per_image_values).mean()
+                smooth_values_list.append(mean_smooth_value)
+
+            # Convert list to tensor and return mean across batch
+            smooth_values = th.stack(smooth_values_list)  # Shape: (batch_size,)
+            print("smooth_values mean", smooth_values.mean() )
+            return smooth_values.mean()  # Mean value per image
+
         
-        
-        terms["loss"] = -0.01*mask_logits.var(dim=1).mean() + mean_flat(loss)
+        terms["loss"] = -0.01*mask_logits.var(dim=1).mean() + mean_flat(loss) -0.05*check_empty_masks(mask_logits)
         
 
       
