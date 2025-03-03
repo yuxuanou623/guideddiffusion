@@ -14,7 +14,7 @@ def get_default_configs():
 
     ## Diffusion parameters
     config.diffusion = diffusion = ml_collections.ConfigDict()
-    diffusion.num_masks = 3
+    diffusion.num_masks = 5
     diffusion.steps = 1000
     diffusion.learn_sigma = False
     diffusion.sigma_small = False

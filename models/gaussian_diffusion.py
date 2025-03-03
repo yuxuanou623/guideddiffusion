@@ -305,7 +305,7 @@ class GaussianDiffusion:
         # x=torch.zeros(x.shape).cuda()
         x_in = th.cat((x, cond), 1)
 
-        model_output, masks = model(x_in, self._scale_timesteps(t), **model_kwargs)
+        model_output, masks, mask_logits = model(x_in, self._scale_timesteps(t), **model_kwargs)
         # model_output = model(x_in, **model_kwargs)
         # model_output = model(x, self._scale_timesteps(t), **model_kwargs)
 
@@ -374,7 +374,8 @@ class GaussianDiffusion:
             "variance": model_variance,
             "log_variance": model_log_variance,
             "pred_xstart": pred_xstart,
-            "masks": masks
+            "masks": masks,
+            "masks_logits": mask_logits
         }
 
     def _predict_xstart_from_eps(self, x_t, t, eps):
@@ -486,7 +487,7 @@ class GaussianDiffusion:
                 cond_fn, out, x, t, model_kwargs=model_kwargs
             )
         sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
-        return {"sample": sample, "pred_xstart": out["pred_xstart"], "model_output": out["model_output"], "masks": out["masks"]}
+        return {"sample": sample, "pred_xstart": out["pred_xstart"], "model_output": out["model_output"], "masks": out["masks"], "masks_logits": out["masks_logits"]}
 
     def p_sample_loop(
             self,
@@ -522,7 +523,8 @@ class GaussianDiffusion:
         :return: a non-differentiable batch of samples.
         """
         final = None
-        for sample, masks in self.p_sample_loop_progressive(
+      
+        for sample, masks , mask_logits in self.p_sample_loop_progressive(
                 model_forward,
                 model_backward,
                 test_data_input,
@@ -538,8 +540,9 @@ class GaussianDiffusion:
                 ddim=ddim
         ):
             final = sample
-            final_masks = masks
-        return final, final_masks
+             
+            masks_logits = mask_logits
+        return final, masks, masks_logits
 
 
     def p_sample_loop_progressive(
@@ -580,12 +583,16 @@ class GaussianDiffusion:
             
             img_forward = noise.cuda()
 
+            masks_all = []
+
             for i_forward in indices:
                 t_forward = th.tensor([i_forward] * shape[0], device=device)
                 with th.no_grad():
                     noise1 = th.randn(shape, device=device)
 
                     cond_forward =  test_data_input
+
+                    
                    
                     if ddim == 'False':
                 
@@ -609,19 +616,24 @@ class GaussianDiffusion:
                         )
              
                     prev_img_forward = out_forward["sample"]
-                    masks = out_forward["masks"]
-                    masks_detach = masks.detach().cpu().numpy()
-                    print(t_forward)
-                    print(np.unique(masks_detach[:,0,:,:]))
-                    print(np.unique(masks_detach[:,1,:,:]))
+                    masks = out_forward["masks"].detach().cpu().numpy()
+                   
+                    mask_logits = out_forward["masks_logits"]
 
+                    masks_all.append(masks)
+                    
+
+                    
+
+                    
+    
                 x_yield = prev_img_forward
                 img_forward = prev_img_forward
 
                 
 
 
-            yield x_yield, masks
+            yield x_yield, masks_all, mask_logits
         elif model_name == 'unet':
             with th.no_grad():
                 x0_pred_forward = model_forward(test_data_input, **model_kwargs)
@@ -723,7 +735,9 @@ class GaussianDiffusion:
             
             cond = input_img 
             x_t_input = th.cat((x_t, cond), 1)
+            mask_difference = input_img- trans_img
            
+            # x_start_pred, masks, mask_logits = model(x_t_input, self._scale_timesteps(t), **model_kwargs)
             x_start_pred, masks, mask_logits = model(x_t_input, self._scale_timesteps(t), **model_kwargs)
             # mask_logits = model(x_t_input, self._scale_timesteps(t), **model_kwargs)
         elif model_name == 'unet':
@@ -764,15 +778,27 @@ class GaussianDiffusion:
         
         # terms["loss"] = mean_flat(loss) + masks_penalty
         
-        def smooth_any_positive(x, alpha=10):
+        # def smooth_any_positive(x, alpha=10):
+        #     """
+        #     Differentiable function to check if any value in x is greater than 0.
+        #     Uses Log-Sum-Exp (Softplus) to approximate OR.
+        #     :param x: Tensor of shape (...), any number of dimensions
+        #     :param alpha: Sharpness control (higher = closer to hard OR)
+        #     :return: Smoothly approximates max(x, 0)
+        #     """
+        #     return th.log(1 + th.sum(th.exp(alpha * x))) / alpha
+        def smooth_any_positive_fixed(x, alpha=100):
             """
-            Differentiable function to check if any value in x is greater than 0.
-            Uses Log-Sum-Exp (Softplus) to approximate OR.
-            :param x: Tensor of shape (...), any number of dimensions
-            :param alpha: Sharpness control (higher = closer to hard OR)
-            :return: Smoothly approximates max(x, 0)
+            Ensures that the function outputs ~0 when all values in x are <= 0.
+            
+            :param x: Tensor of shape (...), any number of dimensions.
+            :param alpha: Sharpness control (higher = closer to hard OR).
+            :return: A smoothly transitioning value > 0 if any x_i > 0, otherwise ~0.
             """
-            return th.log(1 + th.sum(th.exp(alpha * x))) / alpha
+            n = x.numel()  # Number of elements in x
+            n_tensor = th.tensor(1 + n, dtype=x.dtype, device=x.device)  # Convert to tensor
+            return (th.log(1 + th.sum(th.exp(alpha * x))) - th.log(n_tensor)) / alpha  # Normalized
+
 
         def check_empty_masks(masks_logits, alpha=10):
             """
@@ -794,7 +820,7 @@ class GaussianDiffusion:
                 per_image_values = []
                 for m in range(num_mask):  # Iterate over masks
                     # Flatten the spatial dimensions and compute smooth_any_positive
-                    smooth_value = smooth_any_positive(shifted_logits[b, m].flatten(), alpha=alpha)
+                    smooth_value = reverse_relu(smooth_any_positive_fixed(shifted_logits[b, m].flatten(), alpha=alpha))
                     per_image_values.append(smooth_value)
                 print("per_image_values",per_image_values)
                 # Compute mean across all masks in the image
@@ -805,9 +831,18 @@ class GaussianDiffusion:
             smooth_values = th.stack(smooth_values_list)  # Shape: (batch_size,)
             print("smooth_values mean", smooth_values.mean() )
             return smooth_values.mean()  # Mean value per image
+        def reverse_relu(y):
+            """
+            Reverse ReLU: Returns y when y < 0, and 0 when y >= 0.
+            
+            :param y: Input tensor.
+            :return: Reverse ReLU applied to y.
+            """
+            return th.relu(-y)  # Equivalent to max(-y, 0)
 
         
-        terms["loss"] = -0.01*mask_logits.var(dim=1).mean() + mean_flat(loss) -0.05*check_empty_masks(mask_logits)
+        # terms["loss"] = -0.01*mask_logits.var(dim=1).mean() + mean_flat(loss) -0.05*check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
+        terms["loss"] = mean_flat(loss) +check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
         
 
       
@@ -818,18 +853,15 @@ class GaussianDiffusion:
         
             # Log the image to W&B
         if iteration % 200 ==0:
-            wandb.log({f"{iteration}_Image_step_{t[max_index]}": wandb.Image(x_start_pred[max_index,:,:,:].squeeze(0).detach().cpu().numpy())})
-            wandb.log({f"{iteration}_target_step": wandb.Image(target[max_index,:,:,:].squeeze(0).detach().cpu().numpy())})
-            wandb.log({f"{iteration}_noncon": wandb.Image(input_img[max_index,:,:,:].squeeze(0).detach().cpu().numpy())})
-            wandb.log({f"{iteration}_mask0": wandb.Image(masks[max_index,0,:,:].squeeze(0).detach().cpu().numpy())})
-            wandb.log({f"{iteration}_mask1": wandb.Image(masks[max_index,1,:,:].squeeze(0).detach().cpu().numpy())})
-            wandb.log({f"{iteration}_mask2": wandb.Image(masks[max_index,2,:,:].squeeze(0).detach().cpu().numpy())})
-            # wandb.log({f"{iteration}_mask3": wandb.Image(masks[max_index,3,:,:].squeeze(0).detach().cpu().numpy())})
-            # wandb.log({f"{iteration}_mask4": wandb.Image(masks[max_index,4,:,:].squeeze(0).detach().cpu().numpy())})
-
             wandb.log({
-        f"{iteration}_masks_var": mask_logits.var(dim=1).mean().item()  # Log the scalar value of masks_penalty
-    })
+        "Image": wandb.Image(x_start_pred[max_index, :, :, :].squeeze(0).detach().cpu().numpy()),
+        "Target": wandb.Image(target[max_index, :, :, :].squeeze(0).detach().cpu().numpy()),
+        "Noncon": wandb.Image(input_img[max_index, :, :, :].squeeze(0).detach().cpu().numpy()),
+        "Mask0": wandb.Image(masks[max_index, 0, :, :].squeeze(0).detach().cpu().numpy()),
+        "Mask1": wandb.Image(masks[max_index, 1, :, :].squeeze(0).detach().cpu().numpy()),
+        "Mask2": wandb.Image(masks[max_index, 2, :, :].squeeze(0).detach().cpu().numpy()),
+        "Mask3": wandb.Image(masks[max_index, 3, :, :].squeeze(0).detach().cpu().numpy()),
+        "Mask4": wandb.Image(masks[max_index, 4, :, :].squeeze(0).detach().cpu().numpy())}, step=iteration)
 
 
         return terms
