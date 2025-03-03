@@ -738,7 +738,7 @@ class GaussianDiffusion:
             mask_difference = input_img- trans_img
            
             # x_start_pred, masks, mask_logits = model(x_t_input, self._scale_timesteps(t), **model_kwargs)
-            x_start_pred, masks, mask_logits = model(x_t_input, self._scale_timesteps(t), **model_kwargs)
+            x_start_pred= model(x_t_input, self._scale_timesteps(t), **model_kwargs)
             # mask_logits = model(x_t_input, self._scale_timesteps(t), **model_kwargs)
         elif model_name == 'unet':
             x_t_input = input_img
@@ -842,7 +842,7 @@ class GaussianDiffusion:
 
         
         # terms["loss"] = -0.01*mask_logits.var(dim=1).mean() + mean_flat(loss) -0.05*check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
-        terms["loss"] = mean_flat(loss) +check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
+        terms["loss"] = mean_flat(loss) 
         
 
       
@@ -856,12 +856,7 @@ class GaussianDiffusion:
             wandb.log({
         "Image": wandb.Image(x_start_pred[max_index, :, :, :].squeeze(0).detach().cpu().numpy()),
         "Target": wandb.Image(target[max_index, :, :, :].squeeze(0).detach().cpu().numpy()),
-        "Noncon": wandb.Image(input_img[max_index, :, :, :].squeeze(0).detach().cpu().numpy()),
-        "Mask0": wandb.Image(masks[max_index, 0, :, :].squeeze(0).detach().cpu().numpy()),
-        "Mask1": wandb.Image(masks[max_index, 1, :, :].squeeze(0).detach().cpu().numpy()),
-        "Mask2": wandb.Image(masks[max_index, 2, :, :].squeeze(0).detach().cpu().numpy()),
-        "Mask3": wandb.Image(masks[max_index, 3, :, :].squeeze(0).detach().cpu().numpy()),
-        "Mask4": wandb.Image(masks[max_index, 4, :, :].squeeze(0).detach().cpu().numpy())}, step=iteration)
+        "Noncon": wandb.Image(input_img[max_index, :, :, :].squeeze(0).detach().cpu().numpy())}, step=iteration)
 
 
         return terms
