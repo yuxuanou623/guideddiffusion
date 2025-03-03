@@ -822,14 +822,14 @@ class GaussianDiffusion:
                     # Flatten the spatial dimensions and compute smooth_any_positive
                     smooth_value = reverse_relu(smooth_any_positive_fixed(shifted_logits[b, m].flatten(), alpha=alpha))
                     per_image_values.append(smooth_value)
-                print("per_image_values",per_image_values)
+                
                 # Compute mean across all masks in the image
                 mean_smooth_value = th.stack(per_image_values).mean()
                 smooth_values_list.append(mean_smooth_value)
 
             # Convert list to tensor and return mean across batch
             smooth_values = th.stack(smooth_values_list)  # Shape: (batch_size,)
-            print("smooth_values mean", smooth_values.mean() )
+            
             return smooth_values.mean()  # Mean value per image
         def reverse_relu(y):
             """
