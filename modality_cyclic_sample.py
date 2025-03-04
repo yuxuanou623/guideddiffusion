@@ -437,7 +437,7 @@ def main(args):
         print("error_map")
         print(type(error_map))
         print("error_map",error_map.sum())
-        output_folder_pred = "/mnt/data/data/evaluation/predict" +filename[:-3] # Change to your actual folder
+        output_folder_pred = "/mnt/data/data/evaluation/predict" +filename[:-3] + "timestep1000"# Change to your actual folder
         output_folder_true = "/mnt/data/data/evaluation/true" +filename[:-3]      # Change to your actual folder
         output_folder_trans = "/mnt/data/data/evaluation/trans"+filename[:-3]
         # save_images(img_pred_all, img_true_all, trans_all,output_folder_pred, output_folder_true,output_folder_trans,num_sample)
@@ -469,13 +469,13 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", help="brats", type=str, default='oxaaa')
     parser.add_argument("--input", help="input modality, choose from flair, t2, t1", type=str, default='noncon')
     parser.add_argument("--trans", help="input modality, choose from flair, t2, t1", type=str, default='con')
-    parser.add_argument("--data_dir", help="data directory", type=str, default='/mnt/data/data/OxAAA')
+    parser.add_argument("--data_dir", help="data directory", type=str, default='/mnt/data/data/OxAAA/test/normalized')
     parser.add_argument("--experiment_name_forward", help="forward model saving file name", type=str, default='diffusion_oxaaa_noncon_con')
     parser.add_argument("--experiment_name_backward", help="backward model saving file name", type=str, default='meiyou')
     parser.add_argument("--model_name", help="translated model: unet or diffusion", type=str, default='diffusion')
-    parser.add_argument("--use_ddim", help="if you want to use ddim during sampling, True or False", type=str, default='False')
+    parser.add_argument("--use_ddim", help="if you want to use ddim during sampling, True or False", type=str, default='True')
     parser.add_argument("--timestep_respacing", help="If you want to rescale timestep during sampling. enter the timestep you want to rescale the diffusion prcess to. If you do not wish to resale thetimestep, leave it blank or put 1000.", type=int,
-                        default=100)
+                        default=1000)
     parser.add_argument("--modelfilename", help="brats", type=str, default='model155000_batchsize32_filtereddata.pt')
 
     args = parser.parse_args()

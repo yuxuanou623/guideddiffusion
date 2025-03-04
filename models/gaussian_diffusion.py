@@ -305,7 +305,7 @@ class GaussianDiffusion:
         # x=torch.zeros(x.shape).cuda()
         x_in = th.cat((x, cond), 1)
 
-        model_output, masks, mask_logits = model(x_in, self._scale_timesteps(t), **model_kwargs)
+        model_output = model(x_in, self._scale_timesteps(t), **model_kwargs)
         # model_output = model(x_in, **model_kwargs)
         # model_output = model(x, self._scale_timesteps(t), **model_kwargs)
 
@@ -373,9 +373,7 @@ class GaussianDiffusion:
             "mean": model_mean,
             "variance": model_variance,
             "log_variance": model_log_variance,
-            "pred_xstart": pred_xstart,
-            "masks": masks,
-            "masks_logits": mask_logits
+            "pred_xstart": pred_xstart
         }
 
     def _predict_xstart_from_eps(self, x_t, t, eps):
@@ -487,7 +485,7 @@ class GaussianDiffusion:
                 cond_fn, out, x, t, model_kwargs=model_kwargs
             )
         sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
-        return {"sample": sample, "pred_xstart": out["pred_xstart"], "model_output": out["model_output"], "masks": out["masks"], "masks_logits": out["masks_logits"]}
+        return {"sample": sample, "pred_xstart": out["pred_xstart"], "model_output": out["model_output"]}
 
     def p_sample_loop(
             self,
@@ -524,7 +522,7 @@ class GaussianDiffusion:
         """
         final = None
       
-        for sample, masks , mask_logits in self.p_sample_loop_progressive(
+        for sample in self.p_sample_loop_progressive(
                 model_forward,
                 model_backward,
                 test_data_input,
@@ -541,8 +539,8 @@ class GaussianDiffusion:
         ):
             final = sample
              
-            masks_logits = mask_logits
-        return final, masks, masks_logits
+           
+        return final
 
 
     def p_sample_loop_progressive(
@@ -616,11 +614,7 @@ class GaussianDiffusion:
                         )
              
                     prev_img_forward = out_forward["sample"]
-                    masks = out_forward["masks"].detach().cpu().numpy()
-                   
-                    mask_logits = out_forward["masks_logits"]
-
-                    masks_all.append(masks)
+                  
                     
 
                     
@@ -633,7 +627,7 @@ class GaussianDiffusion:
                 
 
 
-            yield x_yield, masks_all, mask_logits
+            yield x_yield
         elif model_name == 'unet':
             with th.no_grad():
                 x0_pred_forward = model_forward(test_data_input, **model_kwargs)
