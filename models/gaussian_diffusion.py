@@ -872,7 +872,9 @@ class GaussianDiffusion:
 
             return loss
         # terms["loss"] = -0.01*mask_logits.var(dim=1).mean() + mean_flat(loss) -0.05*check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
-        terms["loss"] = entropy_loss(mask_logits)+smoothness_loss(mask_logits)+mean_flat(loss) +check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
+        terms["loss"] = entropy_loss(mask_logits)+0.1*smoothness_loss(mask_logits)+mean_flat(loss) +check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
+        print("smoothness_loss(mask_logits)",smoothness_loss(mask_logits))
+        print(entropy_loss(mask_logits))
         
 
       
