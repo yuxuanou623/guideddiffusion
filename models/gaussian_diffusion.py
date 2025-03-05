@@ -841,8 +841,38 @@ class GaussianDiffusion:
             return th.relu(-y)  # Equivalent to max(-y, 0)
 
         
+
+        def entropy_loss(masks_logits):
+            """
+            Encourages confident predictions by minimizing entropy of softmax probabilities.
+            
+            :param masks_logits: Tensor of shape (batch_size, num_masks, H, W)
+            :return: Entropy loss scalar.
+            """
+           
+            entropy = -masks_logits * th.log(masks_logits + 1e-8)  # Compute entropy
+            return th.mean(entropy)  # Average over batch, masks, and spatial dimensions
+        def smoothness_loss(masks_logits):
+            """
+            Encourages spatial smoothness by penalizing large differences between neighboring pixels.
+            
+            :param masks_logits: (batch_size, num_masks, H, W), raw logits.
+            :return: Smoothness loss scalar.
+            """
+            batch_size, num_masks, H, W = masks_logits.shape
+            loss = 0
+
+            if H > 1:  # Ensure we can compute row-wise differences
+                diff_x = masks_logits[:, :, 1:, :] - masks_logits[:, :, :-1, :]
+                loss += th.mean(th.abs(diff_x))
+
+            if W > 1:  # Ensure we can compute column-wise differences
+                diff_y = masks_logits[:, :, :, 1:] - masks_logits[:, :, :, :-1]
+                loss += th.mean(th.abs(diff_y))
+
+            return loss
         # terms["loss"] = -0.01*mask_logits.var(dim=1).mean() + mean_flat(loss) -0.05*check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
-        terms["loss"] = mean_flat(loss) +check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
+        terms["loss"] = entropy_loss(mask_logits)+smoothness_loss(mask_logits)+mean_flat(loss) +check_empty_masks(mask_logits)  #mask5noncon2con_losss wandb colorful_fire
         
 
       

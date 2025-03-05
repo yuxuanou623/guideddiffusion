@@ -341,10 +341,7 @@ class MaskUNetModel(nn.Module):
             # print(mask_logits[1,0,:,:])
      
 
-            mask_indices = th.argmax(mask_logits, dim=1) 
             
-            masks = F.one_hot(mask_indices, num_classes=self.num_mask).permute(0, 3, 1, 2).float()
-
          
             predictions = []
            
@@ -353,7 +350,7 @@ class MaskUNetModel(nn.Module):
                 hs_output_mask = copy.copy(hs_output)
                 for module in self.output_blocks:
                     hs = hs_output_mask.pop()
-                    masks_downsampled = F.interpolate(masks[:, k:k+1, :, :], size=hs.shape[2:], mode="bilinear", align_corners=False)
+                    masks_downsampled = F.interpolate(mask_logits[:, k:k+1, :, :], size=hs.shape[2:], mode="bilinear", align_corners=False)
                     # Apply the downsampled masks
                     masked_enc = hs * masks_downsampled
             
@@ -362,7 +359,7 @@ class MaskUNetModel(nn.Module):
                     
                     h = module(h, emb)
                 h = h.type(x.dtype)
-                predictions.append(self.out(h))
+                predictions.append(mask_logits[:, k:k+1, :, :]*self.out(h))
             final_output = sum(predictions)
                 
 
@@ -377,6 +374,10 @@ class MaskUNetModel(nn.Module):
                 h = module(h)
 
         h = h.type(x.dtype)
+        mask_indices = th.argmax(mask_logits, dim=1) 
+            
+        masks = F.one_hot(mask_indices, num_classes=self.num_mask).permute(0, 3, 1, 2).float()
+
         return final_output, masks, mask_logits
 
 
